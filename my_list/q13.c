@@ -57,6 +57,7 @@ void recv_sz_and_config(int *n, int *displs, int *sendcounts, int my_rank, int c
       scanf("%d", n);
 
       int rest = *n%comm_sz;
+      int sum = 0;
 
       for (int i = 0; i < comm_sz; i++){
          sendcounts[i] = *n/comm_sz;
@@ -64,7 +65,8 @@ void recv_sz_and_config(int *n, int *displs, int *sendcounts, int my_rank, int c
             sendcounts[i]++;
             rest--;
          }
-         displs[i] = (i == 0) ? 0 : sendcounts[i-1];
+         displs[i] = sum;
+         sum += sendcounts[i];
       }
    }
    
@@ -76,12 +78,14 @@ void recv_ipts_and_dist(double local_v1[], double local_v2[], int local_n, int n
                            int *sendcounts, int my_rank){
    double* v1 = NULL;
    double* v2 = NULL;
+
    if(my_rank == 0){
       v1 = malloc(n*sizeof(double));
       printf("Entre com os elementos do primeiro vetor (v1):\n");
       for(int i=0; i<n; i++){
          scanf("%lf", &v1[i]);
       }
+      
       v2 = malloc(n*sizeof(double));
       printf("Entre com os elementos do segundo vetor (v2):\n");
       for(int i=0; i<n; i++){
