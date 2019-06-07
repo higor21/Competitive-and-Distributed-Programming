@@ -7,9 +7,9 @@ void Read_n(int *n_p, int *local_n_p, int my_rank, int comm_sz,
 void Allocate_vectors(double **local_x_pp, double **local_y_pp,
                       double **local_z_pp, int local_n, MPI_Comm comm);
 void Read_vector(double local_a[], int local_n, int n, char vec_name[],
-                 int my_rank, MPI_Comm comm);
+                 int my_rank, MPI_Comm comm, MPI_Datatype *new_type);
 void Print_vector(double local_b[], int local_n, int n, char title[],
-                  int my_rank, MPI_Comm comm);
+                  int my_rank, MPI_Comm comm, MPI_Datatype *new_type);
 void Parallel_vector_sum(double local_x[], double local_y[],
                          double local_z[], int local_n);
 
@@ -19,6 +19,7 @@ int main(void)
       int comm_sz, my_rank;
       double *local_x, *local_y, *local_z;
       MPI_Comm comm;
+      MPI_Datatype new_type;
 
       MPI_Init(NULL, NULL);
       comm = MPI_COMM_WORLD;
@@ -26,18 +27,16 @@ int main(void)
       MPI_Comm_rank(comm, &my_rank);
 
       Read_n(&n, &local_n, my_rank, comm_sz, comm);
-#ifdef DEBUG
-      printf("Proc %d > n = %d, local_n = %d\n", my_rank, n, local_n);
-#endif
+
       Allocate_vectors(&local_x, &local_y, &local_z, local_n, comm);
 
-      Read_vector(local_x, local_n, n, "x", my_rank, comm);
-      Print_vector(local_x, local_n, n, "x is", my_rank, comm);
-      Read_vector(local_y, local_n, n, "y", my_rank, comm);
-      Print_vector(local_y, local_n, n, "y is", my_rank, comm);
+      Read_vector(local_x, local_n, n, "x", my_rank, comm, &new_type);
+      Print_vector(local_x, local_n, n, "x is", my_rank, comm, &new_type);
+      Read_vector(local_y, local_n, n, "y", my_rank, comm, &new_type);
+      Print_vector(local_y, local_n, n, "y is", my_rank, comm, &new_type);
 
       Parallel_vector_sum(local_x, local_y, local_z, local_n);
-      Print_vector(local_z, local_n, n, "The sum is", my_rank, comm);
+      Print_vector(local_z, local_n, n, "The sum is", my_rank, comm, &new_type);
 
       free(local_x);
       free(local_y);
@@ -85,13 +84,15 @@ void Read_vector(
     int n /* in  */,
     char vec_name[] /* in  */,
     int my_rank /* in  */,
-    MPI_Comm comm /* in  */)
+    MPI_Comm comm /* in  */,
+    MPI_Datatype *new_type)
 {
 
       double *a = NULL;
       int i;
 
-
+      MPI_Type_contiguous(local_n, MPI_DOUBLE, new_type);
+      MPI_Type_commit(new_type);
 
       if (my_rank == 0)
       {
@@ -100,13 +101,13 @@ void Read_vector(
             printf("Enter the vector %s\n", vec_name);
             for (i = 0; i < n; i++)
                   scanf("%lf", &a[i]);
-            MPI_Scatter(a, local_n, MPI_DOUBLE, local_a, local_n, MPI_DOUBLE, 0,
+            MPI_Scatter(a, 1, *new_type, local_a, 1, *new_type, 0,
                         comm);
             free(a);
       }
       else
       {
-            MPI_Scatter(a, local_n, MPI_DOUBLE, local_a, local_n, MPI_DOUBLE, 0,
+            MPI_Scatter(a, 1, *new_type, local_a, 1, *new_type, 0,
                         comm);
       }
 }
@@ -117,16 +118,20 @@ void Print_vector(
     int n /* in */,
     char title[] /* in */,
     int my_rank /* in */,
-    MPI_Comm comm /* in */)
+    MPI_Comm comm /* in */,
+    MPI_Datatype *new_type)
 {
 
       double *b = NULL;
       int i;
 
+      MPI_Type_contiguous(local_n, MPI_DOUBLE, new_type);
+      MPI_Type_commit(new_type);
+
       if (my_rank == 0)
       {
             b = malloc(n * sizeof(double));
-            MPI_Gather(local_b, local_n, MPI_DOUBLE, b, local_n, MPI_DOUBLE,
+            MPI_Gather(local_b, 1, *new_type, b, 1, *new_type,
                        0, comm);
             printf("%s\n", title);
             for (i = 0; i < n; i++)
@@ -136,7 +141,7 @@ void Print_vector(
       }
       else
       {
-            MPI_Gather(local_b, local_n, MPI_DOUBLE, b, local_n, MPI_DOUBLE, 0,
+            MPI_Gather(local_b, 1, *new_type, b, 1, *new_type, 0,
                        comm);
       }
 }
