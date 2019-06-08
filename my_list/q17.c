@@ -91,8 +91,10 @@ void Read_vector(
       double *a = NULL;
       int i;
 
+      /* definição do novo tipo */
       MPI_Type_contiguous(local_n, MPI_DOUBLE, new_type);
       MPI_Type_commit(new_type);
+      /* definição do novo tipo */
 
       if (my_rank == 0)
       {
@@ -101,14 +103,16 @@ void Read_vector(
             printf("Enter the vector %s\n", vec_name);
             for (i = 0; i < n; i++)
                   scanf("%lf", &a[i]);
-            MPI_Scatter(a, 1, *new_type, local_a, 1, *new_type, 0,
-                        comm);
+
+            /* utilizando o novo tipo */
+            MPI_Scatter(a, 1, *new_type, local_a, 1, *new_type, 0, comm);
+
             free(a);
       }
       else
       {
-            MPI_Scatter(a, 1, *new_type, local_a, 1, *new_type, 0,
-                        comm);
+            /* utilizando o novo tipo */
+            MPI_Scatter(a, 1, *new_type, local_a, 1, *new_type, 0,comm);
       }
 }
 
@@ -125,14 +129,18 @@ void Print_vector(
       double *b = NULL;
       int i;
 
+      /* definição do novo tipo */
       MPI_Type_contiguous(local_n, MPI_DOUBLE, new_type);
       MPI_Type_commit(new_type);
+      /* definição do novo tipo */
 
       if (my_rank == 0)
       {
             b = malloc(n * sizeof(double));
-            MPI_Gather(local_b, 1, *new_type, b, 1, *new_type,
-                       0, comm);
+
+            /* utilizando o novo tipo */
+            MPI_Gather(local_b, 1, *new_type, b, 1, *new_type, 0, comm);
+
             printf("%s\n", title);
             for (i = 0; i < n; i++)
                   printf("%f ", b[i]);
@@ -141,8 +149,8 @@ void Print_vector(
       }
       else
       {
-            MPI_Gather(local_b, 1, *new_type, b, 1, *new_type, 0,
-                       comm);
+            /* utilizando o novo tipo */
+            MPI_Gather(local_b, 1, *new_type, b, 1, *new_type, 0, comm);
       }
 }
 
