@@ -4,17 +4,15 @@
 #include <math.h>
 
 void read_vector(double vect[], int *n, int my_rank);
-void send_and_recv(double *array, int size_v, MPI_Datatype *new_type, int my_rank, MPI_Comm comm);
+void send_and_recv(double *array, int sz, MPI_Datatype type_to_send, MPI_Datatype type_to_recv, int my_rank, MPI_Comm comm);
 void print_vector(double *vect, int n , int my_rank);
-void iprint_vector(int *vect, int n , int my_rank);
-void read_vector(double *vect, int *n, int my_rank);
-void process_vectors(double *vect, int *n, int *displacements, int *blocklengths, int my_rank);
+void process_vectors(int *n, int *displacements, int *blocklengths);
 
 int main(void)
 {
         int *displacements = NULL, *blocklengths = NULL, size_v;
         double *array = NULL;
-        MPI_Datatype *new_type = NULL;
+        MPI_Datatype type_to_send, type_to_recv;
 
         int my_rank, comm_sz;
         MPI_Comm comm;
@@ -24,67 +22,51 @@ int main(void)
         MPI_Comm_size(comm, &comm_sz);
         MPI_Comm_rank(comm, &my_rank);
 
-        // ler vetor
-        //read_vector(array, &size_v, my_rank);
-        
         if (my_rank == 0){
                 printf("Enter the order of matrix: \n");
-                scanf("%d", &size_v);
+                scanf("%d", &size_v);                
+        }
+        
+        blocklengths = malloc(size_v * sizeof(int));
+        displacements = malloc(size_v * sizeof(int));
+        size_v *= size_v;
+        MPI_Bcast(&size_v, 1, MPI_INT, 0, comm);
+        array = malloc(size_v * sizeof(double));
 
-                blocklengths = malloc(size_v * sizeof(int));
-                displacements = malloc(size_v * sizeof(int));
-                
-                size_v *= size_v;
-
-                array = malloc(size_v * sizeof(double));
-
+        if(my_rank == 0){
                 printf("\nEnter the elements of matrix:\n");
 
                 for (int i = 0; i < size_v; i++)
                         scanf("%lf", &array[i]);
-
-                // calcular displac.. e block...
-                process_vectors(array, &size_v, displacements, blocklengths, my_rank);
-
-                //print_vector(array, size_v, 1);
-                //iprint_vector(displacements, sqrt(size_v), 1);
-                //iprint_vector(blocklengths, sqrt(size_v), 1);
-                
-                // criar tipo
-                MPI_Type_indexed(sqrt(size_v), blocklengths, displacements, MPI_DOUBLE, new_type);
-                MPI_Type_commit(new_type);
         }
 
+        process_vectors(&size_v, displacements, blocklengths);
+
+        // criar tipo
+        MPI_Type_indexed(sqrt(size_v), blocklengths, displacements, MPI_DOUBLE, &type_to_send);
+        MPI_Type_commit(&type_to_send);
+
+
+        // calculo do tamanho da saída
+        int sz_out = 0;
+        for(int i = 0; i < sqrt(size_v) ; i++)
+                sz_out += blocklengths[i];
+
+        MPI_Type_contiguous(sz_out, MPI_DOUBLE, &type_to_recv);
+        MPI_Type_commit(&type_to_recv);
+
         // send and recv
-        //send_and_recv(array, size_v, new_type, my_rank, comm);
+        send_and_recv(array, size_v, type_to_send, type_to_recv, my_rank, comm);
 
         // print
-        //print_vector(array, size_v, my_rank);
+        print_vector(array, sz_out, my_rank);
 
 	/* Shut down MPI */
 	MPI_Finalize();
 
 }
 
-void read_vector(double *vect, int *n, int my_rank)
-{
-        if (my_rank == 0)
-        {
-                printf("Enter the order of matrix: ");
-                scanf("%d", n);
-
-                *n *= *n;
-
-                vect = malloc((*n) * sizeof(double));
-
-                printf("\nEnter the elements of vector:\n");
-
-                for (int i = 0; i < *n; i++)
-                        scanf("%lf", &vect[i]);
-        }
-}
-
-void process_vectors(double *vect, int *n, int *displacements, int *blocklengths, int my_rank){
+void process_vectors(int *n, int *displacements, int *blocklengths){
 
         int curr_length = sqrt(*n);
         int block = sqrt(*n);
@@ -111,14 +93,14 @@ void process_vectors(double *vect, int *n, int *displacements, int *blocklengths
         }
 }
 
-void send_and_recv(double *array, int size_v, MPI_Datatype *new_type, int my_rank, MPI_Comm comm){
+void send_and_recv(double *array, int sz, MPI_Datatype type_to_send, MPI_Datatype type_to_recv, int my_rank, MPI_Comm comm){
         if (my_rank == 0) { 
-		MPI_Send(array, 1, *new_type, 1, 0, comm);
+		MPI_Send(array, 1, type_to_send, 1, 0, comm);
 	}
         
         if(my_rank == 1){
-	     MPI_Recv(array, 1, *new_type, 0, 0, comm, MPI_STATUS_IGNORE);
-	} 
+	        MPI_Recv(array, 1, type_to_recv, 0, 0, comm, MPI_STATUS_IGNORE);
+	}
 }
 
 void print_vector(double *vect, int n , int my_rank){
@@ -127,16 +109,6 @@ void print_vector(double *vect, int n , int my_rank){
                 printf("result: ");
                 for (int i = 0; i < n; i++)
                         printf("%lf ", vect[i]);
-                printf("\n");
-        }
-}
-
-void iprint_vector(int *vect, int n , int my_rank){
-        if (my_rank == 1)
-        {
-                printf("result: ");
-                for (int i = 0; i < n; i++)
-                        printf("%d ", vect[i]);
                 printf("\n");
         }
 }
